@@ -1,20 +1,16 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
-
+import React from 'react'
+//import MainPage from './pages/main_page';
+//import ContentPage from './pages/content_page'
+import { StatusBar } from 'expo-status-bar'
+import { NavigationContainer } from '@react-navigation/native'
+import StackNavigator from './navigation/StackNavigator'
 export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+  console.disableYellowBox = true;
+  return ( 
+  <NavigationContainer>
+    <StatusBar style="black" />
+    <StackNavigator/>
+ </NavigationContainer>);
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+//return (<MainPage/>)
+//return (<ContentPage/>)
