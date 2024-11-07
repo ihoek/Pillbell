@@ -1,6 +1,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import MainPage from '../pages/main_page';
+import Time from '../pages/time_page';
 
 const Stack = createStackNavigator();
 const StackNavigator = () =>{
@@ -18,6 +19,7 @@ const StackNavigator = () =>{
             }}            
         >
             <Stack.Screen name="MainPage" component={MainPage}/>
+            <Stack.Screen name="Time" component={Time}/>
            
         </Stack.Navigator>
     )
