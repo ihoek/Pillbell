@@ -5,7 +5,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Picker } from '@react-native-picker/picker';
-import { useTimeContext } from './TimeContext';
+import { useTimeContext } from './TimeContext'; // Context 추가
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -15,33 +15,20 @@ Notifications.setNotificationHandler({
   }),
 });
 
-
-
 export default function Time({ navigation }) {
-  //변수 선언
-  const [date, setDate] = useState(new Date());
-  const [mode, setMode] = useState('date');
+  const { timeData, setTimeData } = useTimeContext(); // Context 사용
   const [show, setShow] = useState(false);
-  const [alarmTime, setAlarmTime] = useState(null);
-  const { timeData, setTimeData } = useTimeContext(); 
-
-  //카테고리 Picker 변수 선언
-  const [selectedTimeBefore, setSelectedTimeBefore] = useState('10');
-
-  //알람 변수 선언
   const notificationListener = useRef();
   const responseListener = useRef();
   const [expoPushToken, setExpoPushToken] = useState('');
 
+  const { date, selectedTimeBefore, alarmTime } = timeData; // Context 값 활용
 
-  
   useEffect(() => {
     registerForPushNotificationsAsync().then(token => token && setExpoPushToken(token));
-
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification Received:', notification);
     });
-
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Notification Response:', response);
     });
@@ -52,10 +39,8 @@ export default function Time({ navigation }) {
     };
   }, []);
 
-  //알람 설정
-  async function registerForPushNotificationsAsync() {
+  const registerForPushNotificationsAsync = async () => {
     let token;
-
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
@@ -76,137 +61,98 @@ export default function Time({ navigation }) {
         alert('Failed to get push token for push notification!');
         return;
       }
-
-      try {
-        const projectId =
-          Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-        if (!projectId) {
-          throw new Error('Project ID not found');
-        }
-        token = (
-          await Notifications.getExpoPushTokenAsync({
-            projectId,
-          })
-        ).data;
-        console.log(token);
-      } catch (e) {
-        token = `${e}`;
-      }
+      token = (await Notifications.getExpoPushTokenAsync({ projectId: Constants.manifest.extra.projectId })).data;
     } else {
       alert('Must use physical device for Push Notifications');
     }
 
     return token;
-  }
+  };
 
-  // 알림 및 시간 설정
-  function calculateAlarmTime() {
-    const triggerTime = new Date(date); // 사용자가 선택한 시간을 복사
-    switch (selectedTimeBefore) {
-      case '1':
-        triggerTime.setMinutes(triggerTime.getMinutes() - 10); // 10분 전
-        break;
-      case '2':
-        triggerTime.setMinutes(triggerTime.getMinutes() - 20); // 20분 전
-        break;
-      case '3':
-        triggerTime.setMinutes(triggerTime.getMinutes() - 30); // 30분 전
-        break;
-      default:
-        triggerTime.setMinutes(triggerTime.getMinutes() - 10); // 기본적으로 10분 전
-        break;
-    }
-    setAlarmTime(triggerTime); // 계산된 알람 시간을 상태에 저장
-  }
+  const calculateAlarmTime = () => {
+    const triggerTime = new Date(date);
+    if (selectedTimeBefore === '1') triggerTime.setMinutes(triggerTime.getMinutes() - 10);
+    else if (selectedTimeBefore === '2') triggerTime.setMinutes(triggerTime.getMinutes() - 20);
+    else triggerTime.setMinutes(triggerTime.getMinutes() - 30);
+    return triggerTime;
+  };
 
-  // 현재 시간과 비교하여 얼마나 뒤에 알림이 발생할지 계산
-  async function scheduleNotification() {
-    calculateAlarmTime(); // 알람 시간을 먼저 계산
+  const scheduleNotification = async () => {
+    const alarmTime = calculateAlarmTime();
+    setTimeData({ ...timeData, alarmTime });
+
     const timeDifference = alarmTime.getTime() - new Date().getTime();
 
     if (timeDifference > 0) {
       await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '알림',
-          body: `약을 먹기까지 ${selectedTimeBefore}분 남았습니다.`,
-        },
-        trigger: {
-          seconds: Math.floor(timeDifference / 1000), // 밀리초를 초로 변환
-        },
+        content: { title: '알림', body: `약을 먹기까지 ${selectedTimeBefore === '1' ? '10' : selectedTimeBefore === '2' ? '20' : '30'}분 남았습니다.` },
+        trigger: { seconds: Math.floor(timeDifference / 1000) },
       });
     } else {
       alert('지정한 시간이 현재 시간보다 이전입니다.');
     }
-  }
+  };
 
-
-  //시간 설정
   const onChange = (event, selectedDate) => {
-    const currentDate = selectedDate;
     setShow(false);
-    setDate(currentDate);
+    setTimeData({ ...timeData, date: selectedDate });
   };
-
-  const showMode = (currentMode) => {
-    setShow(true);
-    setMode(currentMode);
-  };
-
-  //날짜 설정
-  const showDatepicker = () => {
-    showMode('date');
-  };
-
-  //시간 설정
-  const showTimepicker = () => {
-    showMode('time');
-  };
-
-  //카테고리 Picker 설정
-  const pickerRef = useRef();
-
-  function open() {
-    pickerRef.current.focus();
-  }
-
-  function close() {
-    pickerRef.current.blur();
-  }
-
-
 
   return (
     <View style={styles.container}>
       <View style={styles.containerbody}>
         <View style={styles.timemodalbody}>
           <View style={styles.time_alertmodal}><Text>시간설정</Text></View>
-          <TouchableOpacity style={styles.time_alertmodal_content} onPress={showTimepicker}><Text>시간설정</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.time_alertmodal_content} onPress={() => setShow(true)}>
+            <Text>시간설정</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.time_bodylabel}><Text>설정한 시간 : {date.toLocaleString()}</Text></View>
-        {show && (<DateTimePicker testID="dateTimePicker" value={date} mode={mode} is24Hour={true} onChange={onChange} />)}
-        <View style={styles.time_bodylabel}><Text>알람 시간 : {alarmTime ? alarmTime.toLocaleString() : '설정되지 않음'}</Text></View>
+        <View style={styles.time_bodylabel}>
+          <Text>설정한 시간 : {date.toLocaleString()}</Text>
+        </View>
 
+        {show && (
+          <DateTimePicker
+            testID="dateTimePicker"
+            value={date}
+            mode="time"
+            is24Hour={true}
+            onChange={onChange}
+          />
+        )}
+
+        <View style={styles.time_bodylabel}>
+          <Text>알람 시간 : {alarmTime ? alarmTime.toLocaleString() : '설정되지 않음'}</Text>
+        </View>
 
         <View style={styles.timemodalbody}>
           <View style={styles.time_alertmodal}><Text>알람시간</Text></View>
           <TouchableOpacity style={styles.time_alertmodal_content}>
-            <Picker ref={pickerRef} selectedValue={selectedTimeBefore}
-              onValueChange={(itemValue, itemIndex) => setSelectedTimeBefore(itemValue)} style={{ height: 50, width: 150 }}>
+            <Picker
+              selectedValue={selectedTimeBefore}
+              onValueChange={(itemValue) => setTimeData({ ...timeData, selectedTimeBefore: itemValue })}
+              style={{ height: 50, width: 150 }}
+            >
               <Picker.Item label="10분 전" value="1" />
               <Picker.Item label="20분 전" value="2" />
               <Picker.Item label="30분 전" value="3" />
             </Picker>
           </TouchableOpacity>
         </View>
-
       </View>
 
       <View style={styles.containerbottom}>
-        <TouchableOpacity style={styles.time_alertmodal_content} onPress={() => { scheduleNotification(); navigation.navigate('MainPage') }} ><Text>확인</Text></TouchableOpacity>
+        <TouchableOpacity
+          style={styles.time_alertmodal_content}
+          onPress={() => {
+            scheduleNotification();
+            navigation.navigate('MainPage');
+          }}
+        >
+          <Text>확인</Text>
+        </TouchableOpacity>
       </View>
-
-
     </View>
   );
 }
@@ -243,7 +189,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: 'center',
     justifyContent: 'center',
-    margin : 20
+    margin: 20
   },
   time_alertmodal_content: {
     alignItems: 'center',
@@ -268,7 +214,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     margin: 10,
-    
+
   }
 
 
