@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Image, Modal, TextInput, Button } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';// 갤러리 사진 선택 
-
+import TcpSocket from 'react-native-tcp-socket';// react-native-tcp-socket 라이브러리
 
 export default function MainPage({ navigation }) {
 
@@ -33,6 +33,36 @@ export default function MainPage({ navigation }) {
 
   // 사진 저장을 위한 상태 변수
   const [photoUri, setPhotoUri] = useState(null);
+
+  const [serverbuttonText, setServerButtonText] = useState("서버에서 데이터를 기다리는 중...");
+  const [count, setCount] = useState(0);
+
+  // Flask 서버에서 카운트 값을 가져오는 함수
+  const fetchCount = () => {
+    fetch('http://172.29.1.44:5000/count')  // 라즈베리파이 IP 주소로 변경
+    .then(response => response.json())
+    .then(data => {
+      const newCount = data.count;
+      setCount(newCount);
+      
+      // 새로운 count 값을 받아 조건에 따라 CheckbuttonText 상태를 업데이트합니다.
+      if (newCount > 0) {
+        setCheckButtonText("약을 먹었음");
+      } else {
+        setCheckButtonText("아직 약을 먹지 않음");
+      }
+    })
+    .catch(error => console.error("Error fetching count:", error));
+      
+  };
+
+  // 주기적으로 카운트 값을 가져오기 (1초마다 호출)
+  useEffect(() => {
+    const intervalId = setInterval(fetchCount, 1000);  // 1초마다 카운트 요청
+    console.log(fetchCount);
+    return () => clearInterval(intervalId);  // 컴포넌트 언마운트 시 인터벌 제거
+  }, []);
+
 
   //카메라 권한
   if (!permission) {
@@ -70,7 +100,6 @@ export default function MainPage({ navigation }) {
     } else {
       console.error('Camera reference is null.');
     }
-
   }
 
   //갤러리
@@ -111,12 +140,6 @@ export default function MainPage({ navigation }) {
     setPreModalupVisible(true);
   };
 
-  //섭취여부 모달 열기
-  /*const Checkmodalup = () => {
-      console.log('Checkmodalup');
-      setCheckModalupVisible(true);
-  };*/
-
   //카메라 모달 열기
   const cameramodal = () => {
     console.log('cameramodal');
@@ -131,11 +154,9 @@ export default function MainPage({ navigation }) {
     setPreButtonText(Pretext);
     setCheckButtonText(Checktext);
 
-
     setnamemodalupVisible(false);
     setDateModalupVisible(false);
     setPreModalupVisible(false);
-    //setCheckModalupVisible(false);
     setCameraModalupVisible(false);
 
   };
@@ -162,9 +183,9 @@ export default function MainPage({ navigation }) {
         }}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
-            <Text>이름</Text>
-            <TextInput style={styles.textfieldinput} onChangeText={onChangeNameText} value={Nametext} placeholder="이름 입력" />
-            <TouchableOpacity style={styles.category_name} onPress={closemodal}><Text>확인</Text></TouchableOpacity>
+            <View style={styles.modaltop}><Text>이름</Text></View>
+            <View style={styles.modalbody}><TextInput style={styles.textfieldinput} onChangeText={onChangeNameText} value={Nametext} placeholder="이름 입력" /></View>
+            <View style={styles.modalbottom}><TouchableOpacity style={styles.modalcheckbtn} onPress={closemodal}><Text>확인</Text></TouchableOpacity></View>
           </View>
         </View>
       </Modal>
@@ -179,9 +200,9 @@ export default function MainPage({ navigation }) {
         }}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
-            <Text>소비기한</Text>
-            <TextInput style={styles.textfieldinput} onChangeText={onChangeDateText} value={Datetext} placeholder="날짜 입력" />
-            <TouchableOpacity style={styles.category_name} onPress={closemodal}><Text>확인</Text></TouchableOpacity>
+            <View style={styles.modaltop}><Text>소비기한</Text></View>
+            <View style={styles.modalbody}><TextInput style={styles.textfieldinput} onChangeText={onChangeDateText} value={Datetext} placeholder="날짜 입력" /></View>
+            <View style={styles.modalbottom}><TouchableOpacity style={styles.modalcheckbtn} onPress={closemodal}><Text>확인</Text></TouchableOpacity></View>
           </View>
         </View>
       </Modal>
@@ -196,30 +217,12 @@ export default function MainPage({ navigation }) {
         }}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
-            <Text>주의사항</Text>
-            <TextInput style={styles.textfieldinput} onChangeText={onChangePreText} value={Pretext} placeholder="주의사항 입력" />
-            <TouchableOpacity style={styles.category_name} onPress={closemodal}><Text>확인</Text></TouchableOpacity>
+            <View style={styles.modaltop}><Text>주의사항</Text></View>
+            <View style={styles.modalbody}><TextInput style={styles.textfieldinput} onChangeText={onChangePreText} value={Pretext} placeholder="주의사항 입력" /></View>
+            <View style={styles.modalbottom}><TouchableOpacity style={styles.modalcheckbtn} onPress={closemodal}><Text>확인</Text></TouchableOpacity></View>
           </View>
         </View>
       </Modal>
-
-      {/* 섭취여부 모달 */}
-      {/*<Modal
-            animationType="slide"
-            transparent={true}
-            visible={checkmodalupVisible}
-            onRequestClose={() => {
-                setCheckModalupVisible(!checkmodalupVisible);
-            }}>
-            <View style={styles.centeredView}>
-            <View style={styles.modalView}>
-                <Text>섭취여부</Text>
-                <TextInput style={styles.textfieldinput} onChangeText={onChangeCheckText} value={Checktext} placeholder="섭취여부 입력"/>
-                <Text>섭취여부 확인 - python으로 받은 </Text>
-                <TouchableOpacity style={styles.category_name} onPress={closemodal}><Text>확인</Text></TouchableOpacity>
-            </View>
-            </View>
-      </Modal>*/}
 
       {/* 카메라 모달 */}
       <Modal
@@ -241,7 +244,6 @@ export default function MainPage({ navigation }) {
           </View>
         </View>
       </Modal>
-
 
       <View style={styles.containerTop}>
         <TouchableOpacity style={styles.photo_button} onPress={cameramodal}>
@@ -273,7 +275,6 @@ export default function MainPage({ navigation }) {
         <View style={styles.contentlabel}>
           <View style={styles.category_name}><Text>섭취여부</Text></View>
           <TouchableOpacity style={styles.containerbodybutton}><Text style={styles.textfont}>{CheckbuttonText}</Text></TouchableOpacity>
-          {/*<TouchableOpacity style={styles.containerbodybutton} onPress={Checkmodalup}><Text style={styles.textfont}>{CheckbuttonText}</Text></TouchableOpacity>*/}
         </View>
 
       </View>
@@ -281,8 +282,9 @@ export default function MainPage({ navigation }) {
 
       <View style={styles.containerBottom}>
         <View style={styles.contentlabel}>
-          <TouchableOpacity style={styles.containerbottombutton} onPress={() => { navigation.navigate('Time') }}><Text style={styles.textfont}>{"알람설정"}</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.containerbottombutton} onPress={Bodycheck}><Text style={styles.textfont}>{"확인"}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.containerbottombutton} onPress={() => { navigation.navigate('Time') }}><Text style={styles.textfont}>알람설정</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.containerbottombutton} onPress={Bodycheck}><Text style={styles.textfont}>확인</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.containerbottombutton} onPress={fetchCount}><Text style={styles.textfont}>서버연결</Text></TouchableOpacity>
         </View>
       </View>
     </View>
@@ -367,20 +369,21 @@ const styles = StyleSheet.create({
     borderColor: '#000',
     borderWidth: 1,
     borderRadius: 10,
-    width: '80%',
-    height: '30%'
+    width: 300,
+    height: 300
   },
   modalText: {
     marginBottom: 15,
     textAlign: 'center',
   },
   textfieldinput: {
-    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
     margin: 12,
     borderWidth: 1,
     padding: 10,
-    width: 100,
-    alignItems: 'center'
+    width: 200,
   },
   CameraModalView_Top: {
     flex: 4
@@ -433,11 +436,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: "white",
-    width: 200,
+    width: 130,
     height: 50,
     borderColor: '#000',
     borderWidth: 1,
     borderRadius: 10,
     margin: 10,
+  },
+  modalcheckbtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: "white",
+    padding: 10,
+    width: 60,
+    height: 60,
+    borderColor: '#000',
+    borderWidth: 1,
+    borderRadius: 10,
+    margin: 7,
+  },
+  modaltop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalbody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalbottom: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   }
 });
